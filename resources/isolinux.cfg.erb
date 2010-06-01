@@ -1,0 +1,18 @@
+default local 
+prompt 1
+timeout 600
+display boot.msg
+F1 boot.msg
+F2 options.msg
+F4 param.msg
+F5 rescue.msg
+<%= @boot_labels %>
+label local
+  localboot 1
+label rescue
+  kernel vmlinuz
+  append rescue initrd=initrd.img
+label memtest86
+  kernel memtest
+  append -
+

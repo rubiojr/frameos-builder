@@ -1,0 +1,265 @@
+#!/usr/bin/env ruby
+require File.join(File.dirname(__FILE__), "../lib/frameos-builder")
+require File.join(File.dirname(__FILE__), '../vendor/gems/choice-0.1.4/lib/choice')
+
+FRAMEOS_BUILDER_VERSION = '0.1'
+TMPDIR = '/tmp/frameos-builder'
+RESOURCES_DIR = File.join(File.dirname(__FILE__),'../resources')
+CLEANUP_ENV = 1
+Log = Logger.new(File.open('/dev/null', 'w'))
+Log.level = Logger::INFO
+
+#
+# Exit codes
+#
+EXIT_NONROOT = 1
+EXIT_MOUNTFAILED = 2
+EXIT_UMOUNTFAILED = 3
+
+def debug(msg)
+  Log.debug msg
+  puts msg if Log.level == Logger::DEBUG
+end
+
+def error(msg)
+  Log.error msg
+  $stderr.puts msg
+end
+
+def info(msg)
+  Log.info msg
+  puts msg
+end
+
+def trim_rpms(minlist, trimdir)
+  arch = [ 'x86_64', 'noarch' ]
+  core_pkg_list =  []
+
+  IO.readlines(minlist).each do |l|
+    if not RPMDev::valid_rpm_name?(l)
+      puts "WARNING: invalid RPM #{l}" 
+    else
+      core_pkg_list << RPMDev.parse_rpm_name(l.chomp.strip)[0]
+    end
+  end
+
+  removed_pkgs = 0
+  core_pkgs = 0
+  total_pkgs = 0
+
+  Dir["#{trimdir}/*.rpm"].each do |rpm|
+    total_pkgs += 1
+    bn = File.basename rpm 
+    n,v,r,a = RPMDev.parse_rpm_name(bn)
+    if (not core_pkg_list.include?(n)) or (not arch.include?(a))
+      debug "#{bn} not in core set, removing..."
+      removed_pkgs += 1
+      FileUtils.rm_f "#{trimdir}/#{bn}"
+    else
+      core_pkgs += 1
+    end
+  end
+
+  return total_pkgs, core_pkgs, removed_pkgs
+end
+
+def gen_isolinux_file
+  @boot_labels = ""
+  Choice.choices[:ks_files].each do |ksfile|
+    name = File.basename(ksfile, '.ks') 
+    l = """
+label #{name}
+  kernel vmlinuz
+  append ramdisk=8192 ks=cdrom:/#{name}.ks initrd=initrd.img
+"""
+    @boot_labels << l
+  end
+  template = ERB.new(File.read("#{RESOURCES_DIR}/isolinux.cfg.erb"))
+  File.open("#{TMPDIR}/newiso/isolinux/isolinux.cfg", 'w') do |f|
+    f.puts template.result(binding)
+  end
+end
+
+
+def main
+  begin
+    #
+    # run the script as root
+    #
+
+    if `whoami`.strip.chomp != 'root'
+      error "You need to run this script as root"
+      exit EXIT_NONROOT
+    end 
+
+    info 'Setting up the environment'
+    Dir.mkdir TMPDIR
+    Dir.mkdir "#{TMPDIR}/iso"
+
+    `mount -o loop #{ISOFILE} #{TMPDIR}/iso`
+    if $?.exitstatus != 0
+      error "Could't mount the ISO file #{ISOFILE}"
+      exit EXIT_MOUNTFAILED
+    end
+
+    info 'Copying ISO contents...'
+    FileUtils.cp_r "#{TMPDIR}/iso", "#{TMPDIR}/newiso"
+
+    #
+    # Remove non-core pkgs
+    # 
+    info "Removing non-core pkgs..."
+    minlist = "#{RESOURCES_DIR}/minpkglist"
+    trimdir = "#{TMPDIR}/newiso/CentOS/"
+    total_pkgs, core_pkgs, removed_pkgs = trim_rpms minlist, trimdir
+    info "Total PKGs: #{total_pkgs} Core PKGs: #{core_pkgs} Removed PKGs: #{removed_pkgs}"
+    
+    #
+    # Copy frameos kickstart files
+    #
+    info "Copy FrameOS config files"
+    gen_isolinux_file 
+
+    #
+    # Read disc info
+    #
+    media_info = File.read("#{TMPDIR}/iso/.discinfo").each_line.first.chomp.strip
+    debug "Media INFO: #{media_info}"
+    
+    #
+    # Replace comps.xml
+    #
+    FileUtils.cp "#{RESOURCES_DIR}/comps.xml", "#{TMPDIR}/newiso/repodata/"
+
+    #
+    # Copy the default pkgset
+    # 
+    extra_pkgs = Choice.choices[:extra_pkgs_dir]
+    if not extra_pkgs.nil?
+      info "Adding #{extra_pkgs.size} extra pkgs..."
+      FileUtils.cp Dir["#{Choice.choices[:extra_pkgs_dir]}/*.rpm"], "#{TMPDIR}/newiso/CentOS/"
+    end
+
+    #
+    # Gen the default kickstart files
+    #
+    info "Generating kickstart files..."
+    Choice.choices[:ks_files].each do |ksfile|
+      ksname = File.basename(ksfile)
+      FileUtils.cp ksfile, "#{TMPDIR}/newiso/#{ksname}"
+    end
+
+    #
+    # Adding boot files
+    # 
+    info "Adding GRUB splash image"
+    FileUtils.cp Choice.choices[:grub_splash_image], "#{TMPDIR}/newiso/splash.xpm.gz"
+    info "Adding ISOLINUX splash image"
+    FileUtils.cp Choice.choices[:isolinux_splash_image], "#{TMPDIR}/newiso/isolinux/splash.lss"
+    info "Adding ISOLINUX boot msg"
+    if not File.exist? Choice.choices[:isolinux_boot_msg]
+      error "WARNING: Invalid boot.msg file, skipping."
+    else
+      FileUtils.cp Choice.choices[:isolinux_boot_msg], "#{TMPDIR}/newiso/isolinux/boot.msg"
+    end
+    info "Adding ISOLINUX options msg"
+    if not File.exist? Choice.choices[:isolinux_options_msg]
+      error "WARNING: Invalid options.msg file, skipping."
+    else
+      FileUtils.cp Choice.choices[:isolinux_options_msg], "#{TMPDIR}/newiso/isolinux/options.msg"
+    end
+
+    #
+    # Update yum metadata
+    #
+    info "Updating package set..."
+    createrepo_cmd = "cd #{TMPDIR}/newiso && createrepo --checksum=sha --baseurl='media://#{media_info}' -g repodata/comps.xml ."
+    debug createrepo_cmd
+    debug `#{createrepo_cmd}`
+
+    info "Creating the new ISO image..."
+    `mkisofs -R -J -T -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o #{Choice.choices[:output]} #{TMPDIR}/newiso > /dev/null 2>&1`
+  rescue Exception => e
+    if e.class != SystemExit
+      error "EXCEPTION: #{e.message}"
+      puts "********** BACKTRACE *********"
+      error e.backtrace
+    end
+  ensure
+    #
+    # Cleaup the environment
+    #
+    if File.directory? TMPDIR
+      `umount #{TMPDIR}/iso`
+      if $?.exitstatus != 0
+        error "Could't umount the #{TMPDIR}/iso directory"
+      end
+      if CLEANUP_ENV == 1
+        info 'Cleaning up the environment...'
+        FileUtils.rm_rf TMPDIR
+      end
+      info "Done!"
+    end
+  end
+end
+
+Choice.options do 
+  option :extra_pkgs_dir do
+    short '-e'
+    long '--extra-pkgs-dir=DIR'
+    action do |opt|
+      if not File.directory?(opt)
+        puts "WARNING: Extra package directory '#{opt}' is not a directory."
+      end
+    end
+  end
+
+  option :source_iso, :required => true do
+    short '-s'
+    long '--source-iso=SOURCE'
+    desc 'Source CentOS/RHEL iso to use (REQUIRED)'
+  end
+
+  option :version do
+    short '-v'
+    long '--version'
+    action do
+      puts FRAMEOS_BUILDER_VERSION
+    end
+  end
+
+  option :output do
+    short '-o'
+    long '--output=OUTPUT'
+    default "frameos-#{Time.now.strftime('%F')}.iso"
+  end
+
+  option :ks_files do
+    short '-k'
+    long '--ks-files=*FILES'
+    default ["#{RESOURCES_DIR}/frameos.ks", "#{RESOURCES_DIR}/frameos-ide.ks"]
+  end
+
+  option :grub_splash_image do
+    long '--grub-splash-image=IMG' 
+    default "#{RESOURCES_DIR}/splash.xpm.gz"
+  end
+
+  option :isolinux_splash_image do
+    long '--isolinux-splash-image=IMG' 
+    default "#{RESOURCES_DIR}/splash.lss"
+  end
+
+  option :isolinux_boot_msg do
+    long '--isolinux-boot-msg=BOOTMSG' 
+    default "#{RESOURCES_DIR}/boot.msg"
+  end
+  option :isolinux_options_msg do
+    long '--isolinux-options-msg=OPTIONSMSG' 
+    default "#{RESOURCES_DIR}/options.msg"
+  end
+end
+
+ISOFILE=Choice.choices[:source_iso]
+
+main
