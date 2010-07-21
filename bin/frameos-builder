@@ -2,95 +2,28 @@
 require File.join(File.dirname(__FILE__), "../lib/frameos-builder")
 require File.join(File.dirname(__FILE__), '../vendor/gems/choice-0.1.4/lib/choice')
 
-FRAMEOS_BUILDER_VERSION = '0.1'
-TMPDIR = '/tmp/frameos-builder'
-RESOURCES_DIR = File.join(File.dirname(__FILE__),'../resources')
-CLEANUP_ENV = 1
 Log = Logger.new(File.open('/dev/null', 'w'))
 Log.level = Logger::INFO
-
-#
-# Exit codes
-#
-EXIT_NONROOT = 1
-EXIT_MOUNTFAILED = 2
-EXIT_UMOUNTFAILED = 3
-
-def debug(msg)
-  Log.debug msg
-  puts msg if Log.level == Logger::DEBUG
-end
-
-def error(msg)
-  Log.error msg
-  $stderr.puts msg
-end
-
-def info(msg)
-  Log.info msg
-  puts msg
-end
-
-def trim_rpms(minlist, trimdir)
-  arch = [ 'x86_64', 'noarch' ]
-  core_pkg_list =  []
-
-  IO.readlines(minlist).each do |l|
-    if not RPMDev::valid_rpm_name?(l)
-      puts "WARNING: invalid RPM #{l}" 
-    else
-      core_pkg_list << RPMDev.parse_rpm_name(l.chomp.strip)[0]
-    end
-  end
-
-  removed_pkgs = 0
-  core_pkgs = 0
-  total_pkgs = 0
-
-  Dir["#{trimdir}/*.rpm"].each do |rpm|
-    total_pkgs += 1
-    bn = File.basename rpm 
-    n,v,r,a = RPMDev.parse_rpm_name(bn)
-    if (not core_pkg_list.include?(n)) or (not arch.include?(a))
-      debug "#{bn} not in core set, removing..."
-      removed_pkgs += 1
-      FileUtils.rm_f "#{trimdir}/#{bn}"
-    else
-      core_pkgs += 1
-    end
-  end
-
-  return total_pkgs, core_pkgs, removed_pkgs
-end
-
-def gen_isolinux_file
-  @boot_labels = ""
-  Choice.choices[:ks_files].each do |ksfile|
-    name = File.basename(ksfile, '.ks') 
-    l = """
-label #{name}
-  kernel vmlinuz
-  append ramdisk=8192 ks=cdrom:/#{name}.ks initrd=initrd.img
-"""
-    @boot_labels << l
-  end
-  template = ERB.new(File.read("#{RESOURCES_DIR}/isolinux.cfg.erb"))
-  File.open("#{TMPDIR}/newiso/isolinux/isolinux.cfg", 'w') do |f|
-    f.puts template.result(binding)
-  end
-end
-
 
 def main
   begin
     #
     # run the script as root
     #
+    
+    if not requirements_ok? 
+      raise Exception.new "Missing some requirements. Aborting."
+    end
 
     if `whoami`.strip.chomp != 'root'
-      error "You need to run this script as root"
-      exit EXIT_NONROOT
+      err = "You need to run this script as root"
+      raise Exception.new err
     end 
+
+    if not supported_environment?
+      err = "Environment not supported. You need to run frameos-builder in CentOS 5."
+      raise Exception.new err
+    end
 
     info 'Setting up the environment'
     Dir.mkdir TMPDIR
@@ -99,18 +32,19 @@ def main
     `mount -o loop #{ISOFILE} #{TMPDIR}/iso`
     if $?.exitstatus != 0
       error "Could't mount the ISO file #{ISOFILE}"
-      exit EXIT_MOUNTFAILED
+      raise Exception.new EXIT_MOUNTFAILED
     end
 
     info 'Copying ISO contents...'
     FileUtils.cp_r "#{TMPDIR}/iso", "#{TMPDIR}/newiso"
+    FileUtils.mv   "#{TMPDIR}/newiso/CentOS", "#{TMPDIR}/newiso/FrameOS"
 
     #
     # Remove non-core pkgs
     # 
     info "Removing non-core pkgs..."
     minlist = "#{RESOURCES_DIR}/minpkglist"
-    trimdir = "#{TMPDIR}/newiso/CentOS/"
+    trimdir = "#{TMPDIR}/newiso/FrameOS/"
     total_pkgs, core_pkgs, removed_pkgs = trim_rpms minlist, trimdir
     info "Total PKGs: #{total_pkgs} Core PKGs: #{core_pkgs} Removed PKGs: #{removed_pkgs}"
     
@@ -129,7 +63,8 @@ def main
     #
     # Replace comps.xml
     #
-    FileUtils.cp "#{RESOURCES_DIR}/comps.xml", "#{TMPDIR}/newiso/repodata/"
+    info "Updating comps.xml file"
+    FileUtils.cp Choice.choices[:comps_file], "#{TMPDIR}/newiso/repodata/"
 
     #
     # Copy the default pkgset
@@ -137,7 +72,7 @@ def main
     extra_pkgs = Choice.choices[:extra_pkgs_dir]
     if not extra_pkgs.nil?
       info "Adding #{extra_pkgs.size} extra pkgs..."
-      FileUtils.cp Dir["#{Choice.choices[:extra_pkgs_dir]}/*.rpm"], "#{TMPDIR}/newiso/CentOS/"
+      FileUtils.cp Dir["#{Choice.choices[:extra_pkgs_dir]}/*.rpm"], "#{TMPDIR}/newiso/FrameOS/"
     end
 
     #
@@ -177,11 +112,34 @@ def main
     debug createrepo_cmd
     debug `#{createrepo_cmd}`
 
+    #
+    # Rebrand the installer
+    #
+    info "Rebranding the installer..."
+    do_initrd_branding("#{TMPDIR}/newiso/isolinux/initrd.img", Choice.choices[:product_name], Choice.choices[:product_version], Choice.choices[:product_bugs_url])
+
+    do_stage2_branding("#{TMPDIR}/newiso/images/stage2.img", 
+                       Choice.choices[:product_name], 
+                       Choice.choices[:product_version], 
+                       Choice.choices[:product_bugs_url], 
+                       Choice.choices[:anaconda_pixmaps_dir],
+                       Choice.choices[:custom_anaconda_pkg],
+                       Choice.choices[:custom_redhat_logos_pkg]
+                      )
+
+    info "Adding release notes"
+    FileUtils.rm_f Dir["#{TMPDIR}/newiso/NOTES/RELEASE-NOTES*"]
+    FileUtils.rm_f Dir["#{TMPDIR}/newiso/RELEASE-NOTES*"]
+    Choice.choices[:release_notes].each do |rn|
+      FileUtils.cp rn , "#{TMPDIR}/newiso/NOTES/"
+      FileUtils.cp rn , "#{TMPDIR}/newiso/"
+    end
+
     info "Creating the new ISO image..."
     `mkisofs -R -J -T -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o #{Choice.choices[:output]} #{TMPDIR}/newiso > /dev/null 2>&1`
   rescue Exception => e
-    if e.class != SystemExit
-      error "EXCEPTION: #{e.message}"
+    error "#{e.message}"
+    if Log.level == Logger::DEBUG
       puts "********** BACKTRACE *********"
       error e.backtrace
     end
@@ -198,7 +156,6 @@ def main
         info 'Cleaning up the environment...'
         FileUtils.rm_rf TMPDIR
       end
-      info "Done!"
     end
   end
 end
@@ -207,6 +164,7 @@ Choice.options do
   option :extra_pkgs_dir do
     short '-e'
     long '--extra-pkgs-dir=DIR'
+    default "#{PACKAGES_DIR}/"
     action do |opt|
       if not File.directory?(opt)
         puts "WARNING: Extra package directory '#{opt}' is not a directory."
@@ -224,7 +182,7 @@ Choice.options do
     short '-v'
     long '--version'
     action do
-      puts FRAMEOS_BUILDER_VERSION
+      puts "FrameOS Builder Version " +  FRAMEOS_BUILDER_VERSION
     end
   end
 
@@ -237,17 +195,17 @@ Choice.options do
   option :ks_files do
     short '-k'
     long '--ks-files=*FILES'
-    default ["#{RESOURCES_DIR}/frameos.ks", "#{RESOURCES_DIR}/frameos-ide.ks"]
+    default ["#{RESOURCES_DIR}/frameos.ks", "#{RESOURCES_DIR}/frameos-ide.ks", "#{RESOURCES_DIR}/frameos-virtio.ks"]
   end
 
   option :grub_splash_image do
     long '--grub-splash-image=IMG' 
-    default "#{RESOURCES_DIR}/splash.xpm.gz"
+    default "#{IMAGES_DIR}/grub/splash.xpm.gz"
   end
 
   option :isolinux_splash_image do
     long '--isolinux-splash-image=IMG' 
-    default "#{RESOURCES_DIR}/splash.lss"
+    default "#{IMAGES_DIR}/isolinux/splash.lss"
   end
 
   option :isolinux_boot_msg do
@@ -258,8 +216,93 @@ Choice.options do
     long '--isolinux-options-msg=OPTIONSMSG' 
     default "#{RESOURCES_DIR}/options.msg"
   end
+
+  option :skip_cleanup do
+    long '--skip-cleanup'
+  end
+
+  option :product_name do
+    long '--product-name=NAME'
+    default 'FrameOS'
+  end
+
+  option :product_version do
+    long '--product-version=VERSION'
+    default '1'
+  end
+
+  option :product_bugs_url do
+    long '--product-bugs-url=VERSION'
+    default 'http://bugs.mycompany.org'
+  end
+
+  option :anaconda_pixmaps_dir do
+    long '--anaconda-pixmaps-dir=DIR'
+    default "#{IMAGES_DIR}/anaconda"
+    action do |opt|
+      if not File.directory?(opt)
+        $stderr.puts "WARNING: specified anaconda pixmaps dir does not exist. Using default."
+        default "#{IMAGES_DIR}/anaconda/"
+      end
+    end
+  end
+
+  option :comps_file do
+    long '--comps-file=FILE'
+    default "#{RESOURCES_DIR}/comps.xml"
+    action do |opt|
+      if not File.exist?(opt)
+        $stderr.puts "WARNING: specified comps.xml does not exist. Using default."
+        default "#{RESOURCES_DIR}/comps.xml"
+      end
+    end
+  end
+
+  option :isolinux_config_template do
+    long '--isolinux-config-template=TMPL'
+    default "#{RESOURCES_DIR}/isolinux.cfg.erb"
+    action do |opt|
+      if not File.exist?(opt)
+        $stderr.puts "WARNING: specified isolinux template does not exist. Using default."
+        default "#{RESOURCES_DIR}/isolinux.cfg.erb"
+      end
+    end
+  end
+  
+  option :release_notes do
+    long '--release-notes=*NOTES'
+    default ["#{RESOURCES_DIR}/RELEASE-NOTES-en", "#{RESOURCES_DIR}/RELEASE-NOTES-en.html"]
+    action do |opt|
+      if not File.exist?(opt)
+        $stderr.puts "WARNING: specified file does not exist. Using default."
+        default ["#{RESOURCES_DIR}/RELEASE-NOTES-en", "#{RESOURCES_DIR}/RELEASE-NOTES-en.html"]
+      end
+    end
+  end
+
+  option :custom_anaconda_pkg do
+    long '--custom-anaconda-pkg=PKG'
+    default "#{PACKAGES_DIR}/anaconda-11.1.2.195-2.el5.frameos.x86_64.rpm"
+  end
+  option :custom_redhat_logos_pkg do
+    long '--custom-redhat-logos-pkg=PKG'
+    default "#{PACKAGES_DIR}/redhat-logos-4.9.99-12.el5.frameos.noarch.rpm"
+  end
+end
+if Choice.choices[:skip_cleanup]
+  CLEANUP_ENV = 0
+else
+  CLEANUP_ENV = 1
 end
 
 ISOFILE=Choice.choices[:source_iso]
 
+TBEGIN = Time.now
 main
+TEND = Time.now
+
+TTOTAL = TEND - TBEGIN
+
+puts
+info "Done!"
+info "#{TTOTAL} seconds to generate the ISO (#{TTOTAL/60} minutes)"

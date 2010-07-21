@@ -5,29 +5,92 @@
 
 Gem::Specification.new do |s|
   s.name = %q{frameos-builder}
-  s.version = "0.1"
+  s.version = "0.2"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Sergio Rubio"]
-  s.date = %q{2010-05-31}
+  s.date = %q{2010-07-15}
   s.default_executable = %q{frameos-builder}
   s.email = %q{sergio@rubio.name}
   s.executables = ["frameos-builder"]
   s.extra_rdoc_files = [
-    "README.txt"
+    "README.txt",
+     "TODO"
   ]
   s.files = [
-    "lib/frameos-builder.rb",
+    ".gitignore",
+     "Gemfile",
+     "README.txt",
+     "Rakefile",
+     "TODO",
+     "bin/frameos-builder",
+     "frameos-builder.gemspec",
+     "images/anaconda/anaconda_header.png",
+     "images/anaconda/first-lowres.png",
+     "images/anaconda/first.png",
+     "images/anaconda/progress_first-lowres.png",
+     "images/anaconda/progress_first.png",
+     "images/anaconda/rnotes/01-centos5-welcome.png",
+     "images/anaconda/rnotes/02-centos5-donate.png",
+     "images/anaconda/rnotes/03-centos5-yum.png",
+     "images/anaconda/rnotes/04-centos5-repos.png",
+     "images/anaconda/rnotes/05-centos5-centosplus.png",
+     "images/anaconda/rnotes/06-centos5-support.png",
+     "images/anaconda/rnotes/07-centos5-docs.png",
+     "images/anaconda/rnotes/08-centos5-wiki.png",
+     "images/anaconda/rnotes/09-centos5-virtualization.png",
+     "images/anaconda/rnotes/en/01-centos5-welcome.png",
+     "images/anaconda/rnotes/en/02-centos5-donate.png",
+     "images/anaconda/rnotes/en/03-centos5-yum.png",
+     "images/anaconda/rnotes/en/04-centos5-repos.png",
+     "images/anaconda/rnotes/en/05-centos5-centosplus.png",
+     "images/anaconda/rnotes/en/06-centos5-support.png",
+     "images/anaconda/rnotes/en/07-centos5-docs.png",
+     "images/anaconda/rnotes/en/08-centos5-wiki.png",
+     "images/anaconda/rnotes/en/09-centos5-virtualization.png",
+     "images/anaconda/splash-small.png",
+     "images/anaconda/splash.png",
+     "images/anaconda/syslinux-splash.png",
+     "images/grub/splash.xpm.gz",
+     "images/isolinux/splash.lss",
+     "lib/frameos-builder.rb",
      "lib/rpmdev.rb",
+     "packages/anaconda-11.1.2.195-2.el5.frameos.x86_64.rpm",
+     "packages/anaconda-runtime-11.1.2.195-2.el5.frameos.x86_64.rpm",
+     "packages/chef-0.8.16-2.el5.noarch.rpm",
+     "packages/frameos-release-5-6.b1.el5.frameos.x86_64.rpm",
+     "packages/frameos-release-notes-5.5-0.x86_64.rpm",
+     "packages/redhat-logos-4.9.99-12.el5.frameos.noarch.rpm",
+     "packages/ruby-1.8.7-1frameos.x86_64.rpm",
+     "packages/ruby-shadow-1.4.1-7.el5.x86_64.rpm",
+     "packages/rubygem-abstract-1.0.0-2.el5.noarch.rpm",
+     "packages/rubygem-bunny-0.6.0-1.el5.noarch.rpm",
+     "packages/rubygem-chef-0.8.16-2.el5.noarch.rpm",
+     "packages/rubygem-erubis-2.6.5-2.el5.noarch.rpm",
+     "packages/rubygem-extlib-0.9.13-5.el5.noarch.rpm",
+     "packages/rubygem-json-1.1.9-1.el5.x86_64.rpm",
+     "packages/rubygem-mixlib-authentication-1.1.2-1.el5.noarch.rpm",
+     "packages/rubygem-mixlib-cli-1.2.0-1.el5.noarch.rpm",
+     "packages/rubygem-mixlib-config-1.1.0-2.el5.noarch.rpm",
+     "packages/rubygem-mixlib-log-1.1.0-1.el5.noarch.rpm",
+     "packages/rubygem-moneta-0.6.0-1.el5.noarch.rpm",
+     "packages/rubygem-ohai-0.5.4-1.el5.noarch.rpm",
+     "packages/rubygem-systemu-1.2.0-3.el5.noarch.rpm",
+     "packages/rubygems-1.3.6-1.noarch.rpm",
+     "resources/RELEASE-NOTES-en",
+     "resources/RELEASE-NOTES-en.html",
      "resources/boot.msg",
      "resources/comps.xml",
      "resources/frameos-ide.ks",
+     "resources/frameos-virtio.ks",
      "resources/frameos.ks",
      "resources/isolinux.cfg.erb",
+     "resources/lang-names",
+     "resources/lang-table",
      "resources/minpkglist",
      "resources/options.msg",
-     "resources/splash.lss",
-     "resources/splash.xpm.gz",
+     "tools/corepkgs_centos5_x86_64",
+     "tools/onlycore.rb",
      "vendor/cache/choice-0.1.4.gem",
      "vendor/gems/choice-0.1.4/CHANGELOG",
      "vendor/gems/choice-0.1.4/LICENSE",

@@ -16,16 +16,16 @@ mouse none
 network --bootproto=dhcp 
 
 zerombr yes
-clearpart --all --drives=hda
+clearpart --all --drives=vda
 
 part /boot --fstype ext2 --size=100
-part pv.6 --size=7000 --grow --ondisk=hda
+part pv.6 --size=7000 --grow --ondisk=vda
 volgroup systemvg pv.6
 logvol / --fstype=ext3 --name=rootlv --vgname=systemvg --size=3000 
 logvol /var --fstype=ext3 --name=varlv --vgname=systemvg --size=1024 
 logvol /tmp --fstype=ext3 --name=tmplv --vgname=systemvg --size=1024
 logvol swap --fstype=swap --name=swaplv --vgname=systemvg --size=1024
-bootloader --location=mbr --driveorder=hda --append="rhgb quiet"
+bootloader --location=mbr --driveorder=vda --append="rhgb quiet"
 
 timezone Europe/Madrid
 rootpw frameos

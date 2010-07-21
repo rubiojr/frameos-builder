@@ -11,9 +11,9 @@ mouse none
 #
 # Configure the network
 #
-network --bootproto=query
+#network --bootproto=query
 #network --bootproto=static --ip=10.0.2.15 --netmask=255.255.255.0 --gateway=10.0.2.254 --nameserver=10.0.2.1 --hostname=frameos
-#network --bootproto=dhcp 
+network --bootproto=dhcp 
 
 zerombr yes
 clearpart --all --drives=sda
@@ -21,7 +21,7 @@ clearpart --all --drives=sda
 part /boot --fstype ext2 --size=100
 part pv.6 --size=7000 --grow --ondisk=sda
 volgroup systemvg pv.6
-logvol / --fstype=ext3 --name=rootlv --vgname=systemvg --size=3000 --grow
+logvol / --fstype=ext3 --name=rootlv --vgname=systemvg --size=3000 
 logvol /var --fstype=ext3 --name=varlv --vgname=systemvg --size=1024 
 logvol /tmp --fstype=ext3 --name=tmplv --vgname=systemvg --size=1024
 logvol swap --fstype=swap --name=swaplv --vgname=systemvg --size=1024

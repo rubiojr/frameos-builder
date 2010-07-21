@@ -1,4 +1,4 @@
-default local 
+default linux
 prompt 1
 timeout 600
 display boot.msg
@@ -15,4 +15,6 @@ label rescue
 label memtest86
   kernel memtest
   append -
-
+label linux
+  kernel vmlinuz
+  append initrd=initrd.img lang=en noparport nofirewire nopcmcia

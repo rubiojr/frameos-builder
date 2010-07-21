@@ -1,11 +1,12 @@
 # -*- ruby -*-
 
 require 'rubygems'
+require 'lib/frameos-builder'
 
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gemspec|
-    gemspec.version = "0.1"
+    gemspec.version = FRAMEOS_BUILDER_VERSION
     gemspec.name = "frameos-builder"
     gemspec.summary = "FrameOS ISO image builder"
     gemspec.email = "sergio@rubio.name"
@@ -15,7 +16,9 @@ begin
       lib/frameos-builder.rb
       lib/rpmdev.rb
       resources/*
+      packages/*
       vendor/**/*
+      images/**/*
     )
   end
 rescue LoadError
