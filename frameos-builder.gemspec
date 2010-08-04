@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{frameos-builder}
-  s.version = "0.2"
+  s.version = "0.2.1"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Sergio Rubio"]
-  s.date = %q{2010-07-15}
+  s.date = %q{2010-08-04}
   s.default_executable = %q{frameos-builder}
   s.email = %q{sergio@rubio.name}
   s.executables = ["frameos-builder"]
@@ -57,15 +57,15 @@ Gem::Specification.new do |s|
      "lib/rpmdev.rb",
      "packages/anaconda-11.1.2.195-2.el5.frameos.x86_64.rpm",
      "packages/anaconda-runtime-11.1.2.195-2.el5.frameos.x86_64.rpm",
-     "packages/chef-0.8.16-2.el5.noarch.rpm",
-     "packages/frameos-release-5-6.b1.el5.frameos.x86_64.rpm",
+     "packages/chef-0.9.6-3.el5.noarch.rpm",
+     "packages/frameos-release-5-6.b2.el5.frameos.x86_64.rpm",
      "packages/frameos-release-notes-5.5-0.x86_64.rpm",
      "packages/redhat-logos-4.9.99-12.el5.frameos.noarch.rpm",
      "packages/ruby-1.8.7-1frameos.x86_64.rpm",
      "packages/ruby-shadow-1.4.1-7.el5.x86_64.rpm",
      "packages/rubygem-abstract-1.0.0-2.el5.noarch.rpm",
      "packages/rubygem-bunny-0.6.0-1.el5.noarch.rpm",
-     "packages/rubygem-chef-0.8.16-2.el5.noarch.rpm",
+     "packages/rubygem-chef-0.9.6-3.el5.noarch.rpm",
      "packages/rubygem-erubis-2.6.5-2.el5.noarch.rpm",
      "packages/rubygem-extlib-0.9.13-5.el5.noarch.rpm",
      "packages/rubygem-json-1.1.9-1.el5.x86_64.rpm",
@@ -74,8 +74,10 @@ Gem::Specification.new do |s|
      "packages/rubygem-mixlib-config-1.1.0-2.el5.noarch.rpm",
      "packages/rubygem-mixlib-log-1.1.0-1.el5.noarch.rpm",
      "packages/rubygem-moneta-0.6.0-1.el5.noarch.rpm",
-     "packages/rubygem-ohai-0.5.4-1.el5.noarch.rpm",
+     "packages/rubygem-ohai-0.5.6-2.el5.noarch.rpm",
+     "packages/rubygem-rest-client-1.3.1-5.el5.noarch.rpm",
      "packages/rubygem-systemu-1.2.0-3.el5.noarch.rpm",
+     "packages/rubygem-uuidtools-2.1.1-1.el5.noarch.rpm",
      "packages/rubygems-1.3.6-1.noarch.rpm",
      "resources/RELEASE-NOTES-en",
      "resources/RELEASE-NOTES-en.html",

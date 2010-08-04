@@ -5,7 +5,7 @@ require 'logger'
 require 'fileutils'
 require File.join(File.dirname(__FILE__), "rpmdev")
 
-FRAMEOS_BUILDER_VERSION = '0.2'
+FRAMEOS_BUILDER_VERSION = '0.2.1'
 TMPDIR = '/tmp/frameos-builder'
 RESOURCES_DIR = File.join(File.dirname(__FILE__),'../resources')
 IMAGES_DIR = File.join(File.dirname(__FILE__),'../images')

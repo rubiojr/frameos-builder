@@ -1,2 +1,5 @@
 
-FrameOS 5.5b1
+FrameOS 5.5 Beta 2
+
+* Chef 0.9.6 
+* Libvirt 0.8.2 + KVM88 available in the FrameOS repo
